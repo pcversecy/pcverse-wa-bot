@@ -1,33 +1,46 @@
 // WhatsApp webhook — Netlify Function
-// Phase 5 (complete): Claude + live inventory (Supabase) + conversation memory.
+// Phase 5 + tuned persona: Claude + inventory + memory, with Pcverse sales rules.
 
 const GRAPH_VERSION = "v21.0";
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
-const HISTORY_LIMIT = 20; // how many past messages to remember per customer
+const HISTORY_LIMIT = 20;
 
 function buildSystemPrompt(productList) {
-  return `Είσαι ο ψηφιακός βοηθός του "Pcverse", επιχείρηση στην Κύπρο που αγοράζει,
-πουλάει και επισκευάζει μεταχειρισμένα κινητά (και άλλες συσκευές).
+  return `Είσαι ο ψηφιακός βοηθός του "Pcverse". Ο ιδιοκτήτης είναι ΙΔΙΩΤΗΣ (όχι κατάστημα)
+στη Λευκωσία, Κύπρος, που αγοράζει, πουλάει και επισκευάζει μεταχειρισμένα κινητά.
 
-Γενικά:
-- Απαντάς πάντα στα Ελληνικά, φιλικά και σύντομα (στιλ WhatsApp, 1-4 προτάσεις).
-- Θυμάσαι τι έχει ειπωθεί πιο πάνω στη συνομιλία και απαντάς με βάση αυτό.
-- Μην εφευρίσκεις ΠΟΤΕ προϊόντα, τιμές ή διαθεσιμότητα που δεν σου δίνονται παρακάτω.
+ΓΛΩΣΣΑ:
+- Απάντα ΣΤΗ ΓΛΩΣΣΑ του πελάτη: αν γράψει αγγλικά, απάντα αγγλικά· αν ελληνικά, ελληνικά.
+- Πάντα φιλικά και σύντομα (στιλ WhatsApp, 1-4 προτάσεις). Θυμάσαι όσα ειπώθηκαν πιο πάνω.
 
-ΑΝ Ο ΠΕΛΑΤΗΣ ΘΕΛΕΙ ΝΑ ΑΓΟΡΑΣΕΙ από εμάς:
-- Κοίτα ΜΟΝΟ τη λίστα διαθέσιμου αποθέματος πιο κάτω.
-- Αν υπάρχει αυτό που ψάχνει: πες τον τίτλο, βασικά χαρακτηριστικά (αποθηκευτικό, χρώμα, μπαταρία/κατάσταση) και την ΤΙΜΗ. Οι τιμές είναι σταθερές — τις λες κανονικά.
-- Αν ΔΕΝ υπάρχει αυτό που ζητά: πες ευγενικά ότι δεν το έχουμε αυτή τη στιγμή και πρότεινε 1-2 παρόμοια ΔΙΑΘΕΣΙΜΑ από τη λίστα.
-- Μην προτείνεις ποτέ κάτι εκτός λίστας.
-- Αν ο πελάτης ζητά έκπτωση ή "κάτι καλύτερο" στην τιμή: μην κατεβάζεις τιμή μόνος σου. Πες ότι θα το δει συνάδελφος και θα επικοινωνήσει.
+ΓΕΝΙΚΟΙ ΚΑΝΟΝΕΣ:
+- Μην εφευρίσκεις ΠΟΤΕ προϊόντα, τιμές ή διαθεσιμότητα εκτός της λίστας πιο κάτω.
+- ΔΕΝ είσαι κατάστημα: μη λες ποτέ "περάστε από το μαγαζί".
+- Μη δίνεις ποτέ στοιχεία πληρωμής/λογαριασμού (Revolut/τράπεζα). Αυτά τα δίνει ο συνάδελφος.
 
-ΑΝ Ο ΠΕΛΑΤΗΣ ΘΕΛΕΙ ΝΑ ΠΟΥΛΗΣΕΙ σε εμάς τη συσκευή του:
-- ΠΟΤΕ μη δίνεις τιμή ή εκτίμηση — εξαρτάται από την κατάσταση.
+ΑΝ Ο ΠΕΛΑΤΗΣ ΘΕΛΕΙ ΝΑ ΑΓΟΡΑΣΕΙ:
+- Κοίτα ΜΟΝΟ τη λίστα αποθέματος. Αν υπάρχει: πες τίτλο, βασικά χαρακτηριστικά (αποθηκευτικό, χρώμα, μπαταρία/κατάσταση) και ΤΙΜΗ.
+- Αν δεν υπάρχει: πες το ευγενικά και πρότεινε 1-2 παρόμοια διαθέσιμα από τη λίστα.
+- ΟΧΙ ΠΑΖΑΡΙΑ: η τιμή είναι σταθερή. Αν ζητήσει έκπτωση/"κάτι καλύτερο", μην κατεβάζεις τιμή.
+  Κράτα την ευγενικά και τόνισε την αξία (άριστη κατάσταση, μπαταρία, με κουτί, αξιόπιστος ιδιώτης).
+- ΠΕΙΘΕ ΣΩΣΤΑ: ανάδειξε τα δυνατά σημεία της συσκευής, χωρίς πίεση ή υπερβολές.
+- ΠΑΡΑΔΟΣΗ: δύο τρόποι — (α) συνάντηση σε σημείο, ή (β) αποστολή. Για αποστολή, η πληρωμή
+  γίνεται πρώτα (Revolut ή Eurobank) και μετά στέλνεται η συσκευή. Πες το ως κανονική, ασφαλή διαδικασία.
+- ΠΕΡΙΟΧΗ/ΧΡΕΩΣΗ: ο ιδιοκτήτης είναι στη Λευκωσία. Ρώτα διακριτικά σε ποια πόλη είναι ο πελάτης.
+  Αν είναι ΕΚΤΟΣ Λευκωσίας, ενημέρωσε ότι υπάρχει έξτρα χρέωση για delivery (το ακριβές ποσό το λέει ο συνάδελφος).
+- ΟΤΑΝ ΚΛΕΙΝΕΙ DEAL (ο πελάτης λέει ναι/θέλω να το πάρω): μην κανονίζεις εσύ λεπτομέρειες.
+  Πες ότι θα επικοινωνήσει ο συνάδελφος για να τα κανονίσετε.
+
+ΑΝ ΔΕΝ ΚΛΕΙΣΕΙ ΑΓΟΡΑ (αρνείται, διστάζει, ή φεύγει η κουβέντα):
+- Ρώτα ευγενικά αν έχει κάποιο δικό του iPhone (ή άλλη συσκευή) που θέλει να ΠΟΥΛΗΣΕΙ.
+
+ΑΝ Ο ΠΕΛΑΤΗΣ ΘΕΛΕΙ ΝΑ ΠΟΥΛΗΣΕΙ σε εμάς:
+- ΠΟΤΕ μη δίνεις τιμή/εκτίμηση — εξαρτάται από την κατάσταση.
 - Μάζεψε: μοντέλο, αποθηκευτικό χώρο, κατάσταση (γρατζουνιές/οθόνη), υγεία μπαταρίας.
-- Μετά πες ότι ένας συνάδελφος θα του στείλει προσφορά σύντομα.
+- Μετά πες ότι ο συνάδελφος θα στείλει προσφορά σύντομα.
 
 ΑΝ ΘΕΛΕΙ ΕΠΙΣΚΕΥΗ:
-- Ρώτα συσκευή και τι πρόβλημα έχει, και πες ότι θα επικοινωνήσει συνάδελφος.
+- Ρώτα συσκευή και πρόβλημα, και πες ότι θα επικοινωνήσει ο συνάδελφος.
 
 ΔΙΑΘΕΣΙΜΟ ΑΠΟΘΕΜΑ ΑΥΤΗ ΤΗ ΣΤΙΓΜΗ:
 ${productList}`;
@@ -52,39 +65,22 @@ exports.handler = async (event) => {
         const from = message.from;
         const text = message.text.body;
 
-        // Inventory (best effort)
         let productList = "(Δεν ήταν δυνατή η ανάγνωση αποθέματος.)";
-        try {
-          productList = formatProducts(await fetchAvailableProducts());
-        } catch (e) {
-          console.error("Supabase products error:", e);
-        }
+        try { productList = formatProducts(await fetchAvailableProducts()); }
+        catch (e) { console.error("Supabase products error:", e); }
 
-        // Conversation history (best effort)
         let history = [];
-        try {
-          history = await fetchHistory(from);
-        } catch (e) {
-          console.error("History read error:", e);
-        }
+        try { history = await fetchHistory(from); }
+        catch (e) { console.error("History read error:", e); }
 
-        // Ask Claude with history + the new message
         let reply;
-        try {
-          reply = await askClaude(history, text, buildSystemPrompt(productList));
-        } catch (err) {
-          console.error("Claude error:", err);
-          reply = "Ένα λεπτό, σε συνδέω με συνάδελφο να σε εξυπηρετήσει. 🙏";
-        }
+        try { reply = await askClaude(history, text, buildSystemPrompt(productList)); }
+        catch (err) { console.error("Claude error:", err); reply = "Ένα λεπτό, σε συνδέω με συνάδελφο να σε εξυπηρετήσει. 🙏"; }
 
         await sendWhatsAppMessage(from, reply);
 
-        // Save both messages (best effort)
-        try {
-          await saveMessages(from, text, reply);
-        } catch (e) {
-          console.error("History save error:", e);
-        }
+        try { await saveMessages(from, text, reply); }
+        catch (e) { console.error("History save error:", e); }
       }
 
       return { statusCode: 200, body: "EVENT_RECEIVED" };
@@ -97,10 +93,8 @@ exports.handler = async (event) => {
   return { statusCode: 405, body: "Method Not Allowed" };
 };
 
-// ---- Supabase: products ----
 async function fetchAvailableProducts() {
-  const url = `${process.env.SUPABASE_URL}/rest/v1/products` +
-    `?sold=eq.false&select=title,spec_el,price,cat,chips_el`;
+  const url = `${process.env.SUPABASE_URL}/rest/v1/products?sold=eq.false&select=title,spec_el,price,cat,chips_el`;
   const res = await fetch(url, { headers: supabaseHeaders() });
   if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
   return res.json();
@@ -115,15 +109,11 @@ function formatProducts(products) {
   }).join("\n");
 }
 
-// ---- Supabase: conversation memory ----
 async function fetchHistory(waId) {
-  const url = `${process.env.SUPABASE_URL}/rest/v1/conversations` +
-    `?wa_id=eq.${encodeURIComponent(waId)}&select=role,content` +
-    `&order=created_at.desc&limit=${HISTORY_LIMIT}`;
+  const url = `${process.env.SUPABASE_URL}/rest/v1/conversations?wa_id=eq.${encodeURIComponent(waId)}&select=role,content&order=created_at.desc&limit=${HISTORY_LIMIT}`;
   const res = await fetch(url, { headers: supabaseHeaders() });
   if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
   const rows = await res.json();
-  // came newest-first → reverse to oldest-first for Claude
   return rows.reverse().map((r) => ({ role: r.role, content: r.content }));
 }
 
@@ -141,22 +131,14 @@ async function saveMessages(waId, userText, assistantText) {
 }
 
 function supabaseHeaders() {
-  return {
-    apikey: process.env.SUPABASE_SERVICE_KEY,
-    Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-  };
+  return { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}` };
 }
 
-// ---- Claude ----
 async function askClaude(history, userText, systemPrompt) {
   const messages = [...history, { role: "user", content: userText }];
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
+    headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 400, system: systemPrompt, messages }),
   });
   if (!res.ok) throw new Error(`Claude API ${res.status}: ${await res.text()}`);
@@ -165,7 +147,6 @@ async function askClaude(history, userText, systemPrompt) {
   return textBlock?.text || "Συγγνώμη, δεν κατάλαβα. Μπορείς να το πεις αλλιώς;";
 }
 
-// ---- WhatsApp send ----
 async function sendWhatsAppMessage(to, text) {
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${process.env.PHONE_NUMBER_ID}/messages`;
   const res = await fetch(url, {
