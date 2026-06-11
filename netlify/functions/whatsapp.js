@@ -1,5 +1,6 @@
 // WhatsApp webhook — Netlify Function
-// Phase 6: Claude + inventory + memory + HUMAN HANDOFF (pause when owner replies).
+// Phase 6+: Claude + inventory + memory + handoff.
+// Handoff = manual switch (ai_enabled) OR temporary 12h window (paused_until).
 
 const GRAPH_VERSION = "v21.0";
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
@@ -55,23 +56,18 @@ exports.handler = async (event) => {
         const from = message.from;
         const text = message.text.body;
 
-        // history BEFORE saving the new message
         let history = [];
         try { history = await fetchHistory(from); } catch (e) { console.error("history read", e); }
-
-        // save incoming (so it shows in the admin inbox, even if AI is paused)
         try { await saveMessage(from, "user", text); } catch (e) { console.error("save user", e); }
 
-        // HANDOFF: if the owner has taken over recently, AI stays silent
+        // HANDOFF: AI stays silent if manually switched off OR within the 12h window
         let paused = false;
         try { paused = await isPaused(from); } catch (e) { console.error("pause check", e); }
         if (paused) return { statusCode: 200, body: "EVENT_RECEIVED" };
 
-        // inventory
         let productList = "(Δεν ήταν δυνατή η ανάγνωση αποθέματος.)";
         try { productList = formatProducts(await fetchAvailableProducts()); } catch (e) { console.error("products", e); }
 
-        // Claude
         let reply;
         try { reply = await askClaude(history, text, buildSystemPrompt(productList)); }
         catch (err) { console.error("claude", err); reply = "Ένα λεπτό, σε συνδέω με συνάδελφο. 🙏"; }
@@ -91,12 +87,14 @@ exports.handler = async (event) => {
 };
 
 async function isPaused(waId) {
-  const url = `${process.env.SUPABASE_URL}/rest/v1/chat_state?wa_id=eq.${encodeURIComponent(waId)}&select=paused_until`;
+  const url = `${process.env.SUPABASE_URL}/rest/v1/chat_state?wa_id=eq.${encodeURIComponent(waId)}&select=ai_enabled,paused_until`;
   const res = await fetch(url, { headers: supabaseHeaders() });
   if (!res.ok) return false;
-  const rows = await res.json();
-  const until = rows?.[0]?.paused_until;
-  return until ? new Date(until) > new Date() : false;
+  const r = (await res.json())?.[0];
+  if (!r) return false;
+  if (r.ai_enabled === false) return true;                                  // manual switch off
+  if (r.paused_until && new Date(r.paused_until) > new Date()) return true; // 12h window
+  return false;
 }
 
 async function fetchAvailableProducts() {

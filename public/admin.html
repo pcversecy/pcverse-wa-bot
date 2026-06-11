@@ -44,7 +44,16 @@ body{background:var(--bg);color:var(--ink-2);font-family:var(--body);-webkit-fon
 .topbar .brand img{height:24px}
 .topbar .tag{font-family:var(--body);font-weight:600;font-size:.78rem;color:var(--muted);border-left:1px solid var(--line-hi);padding-left:12px}
 .topbar .back{font-size:1.5rem;color:var(--ink);cursor:pointer;line-height:1;background:none;border:none;padding:0 4px 0 0}
-.topbar .peer{margin-left:auto;display:flex;align-items:center;gap:7px;font-weight:700;font-size:.92rem;color:var(--ink)}
+.topbar .peer{display:flex;align-items:center;gap:7px;font-weight:700;font-size:.92rem;color:var(--ink)}
+.ai-toggle{margin-left:auto;border:none;border-radius:999px;padding:8px 15px;font-family:var(--body);font-weight:700;font-size:.82rem;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.ai-toggle.off{background:var(--ink);color:#fff}
+.ai-toggle.off:hover{background:#000}
+.ai-toggle.on{background:var(--accent-soft);color:var(--accent)}
+.ai-toggle.on:hover{background:rgba(10,132,255,.16)}
+.statusline{max-width:760px;margin:0 auto;padding:10px 18px 0;font-size:.8rem;font-weight:600;color:var(--muted)}
+.statusline .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.statusline.active .dot{background:var(--verified)}
+.statusline.frozen .dot{background:var(--accent)}
 .topbar .logout{margin-left:auto;background:none;border:1px solid var(--line-hi);border-radius:999px;padding:7px 14px;font-family:var(--body);font-weight:600;font-size:.82rem;color:var(--muted);cursor:pointer;transition:.2s}
 .topbar .logout:hover{color:var(--ink);border-color:var(--ink)}
 .shell{max-width:760px;margin:0 auto;padding:0 18px}
@@ -112,7 +121,9 @@ body{background:var(--bg);color:var(--ink-2);font-family:var(--body);-webkit-fon
   <div class="topbar"><div class="topbar-in">
     <button class="back" onclick="closeChat()">‹</button>
     <span class="peer" id="chatTitle"></span>
+    <button class="ai-toggle" id="aiToggle" onclick="toggleAI()"></button>
   </div></div>
+  <div id="statusLine" class="statusline"></div>
   <div class="shell"><div id="msgs" class="msgs"></div></div>
   <div class="composer">
     <div class="composer-in">
@@ -126,7 +137,7 @@ body{background:var(--bg);color:var(--ink-2);font-family:var(--body);-webkit-fon
 <script>
 const API="/.netlify/functions/admin";
 let KEY=sessionStorage.getItem("pv_key")||"";
-let current=null,listTimer=null,chatTimer=null;
+let current=null,listTimer=null,chatTimer=null,curState={ai_enabled:true,paused_until:null};
 
 function show(id){["login","listView","chatView"].forEach(v=>document.getElementById(v).classList.toggle("hidden",v!==id));}
 function autishise(t){t.style.height="46px";t.style.height=Math.min(t.scrollHeight,120)+"px";}
@@ -180,11 +191,39 @@ async function openChat(waId){
 async function loadChat(){
   try{
     const d=await api("?action=messages&wa_id="+encodeURIComponent(current));
+    if(d.state)curState=d.state;
+    renderToggle();
     const el=document.getElementById("msgs");
     const atBottom=el.scrollHeight-el.scrollTop-el.clientHeight<80;
     el.innerHTML=(d.messages||[]).map(m=>`<div class="bubble ${m.role==='user'?'user':'assistant'}">${escapeHtml(m.content)}</div>`).join("");
     if(atBottom)window.scrollTo(0,document.body.scrollHeight);
   }catch{}
+}
+function renderToggle(){
+  const b=document.getElementById("aiToggle");
+  const s=document.getElementById("statusLine");
+  const off=curState.ai_enabled===false;
+  const windowPaused=curState.paused_until&&new Date(curState.paused_until)>new Date();
+  if(off){
+    b.textContent="▶ Ξεκίνα AI";b.className="ai-toggle on";
+    s.className="statusline frozen";s.innerHTML='<span class="dot"></span>AI σβηστό — απαντάς εσύ';
+  }else if(windowPaused){
+    b.textContent="⏸ Απαντάω εγώ";b.className="ai-toggle off";
+    s.className="statusline frozen";s.innerHTML='<span class="dot"></span>AI σε παύση 12ω (απάντησες πρόσφατα)';
+  }else{
+    b.textContent="⏸ Απαντάω εγώ";b.className="ai-toggle off";
+    s.className="statusline active";s.innerHTML='<span class="dot"></span>AI ενεργό';
+  }
+}
+async function toggleAI(){
+  const newEnabled=curState.ai_enabled===false;
+  const b=document.getElementById("aiToggle");b.disabled=true;
+  try{
+    await api("",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"toggle",wa_id:current,ai_enabled:newEnabled})});
+    curState.ai_enabled=newEnabled;if(newEnabled)curState.paused_until=null;
+    renderToggle();
+  }catch{}
+  b.disabled=false;
 }
 function closeChat(){current=null;openList();}
 async function sendReply(){
