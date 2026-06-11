@@ -54,7 +54,10 @@ exports.handler = async (event) => {
   if (event.httpMethod === "POST" && action === "send") {
     const { wa_id, text } = body;
     if (!wa_id || !text) return json(400, { error: "missing wa_id/text" });
-    await sendWhatsApp(wa_id, text);
+    // Website visitors (web_*) have no WhatsApp number — their widget polls for the reply instead.
+    if (!wa_id.startsWith("web_")) {
+      await sendWhatsApp(wa_id, text);
+    }
     await sbInsert("conversations", [{ wa_id, role: "assistant", content: text }]);
     const until = new Date(Date.now() + PAUSE_HOURS * 3600 * 1000).toISOString();
     await sbUpsert("chat_state", { wa_id, paused_until: until, updated_at: new Date().toISOString() }, "wa_id");

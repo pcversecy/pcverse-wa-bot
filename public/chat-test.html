@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pcverse · Δοκιμή Chat</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#fbfbfd;color:#1d1d1f;margin:0;padding:60px 24px;text-align:center}
+h1{font-weight:700}
+.hint{color:#6e6e73;max-width:520px;margin:0 auto}
+</style>
+</head>
+<body>
+<h1>Δοκιμαστική σελίδα Pcverse</h1>
+<p class="hint">Αυτή είναι μια προσωρινή σελίδα μόνο για να δοκιμάσεις το chat. Πάτα το μπλε bubble κάτω δεξιά για να ξεκινήσεις μια συνομιλία — σαν να είσαι πελάτης.</p>
+
+<!-- ===================== PCVERSE CHAT WIDGET (start) ===================== -->
+<div id="pcv-chat"></div>
+<script>
+(function(){
+  var API="/.netlify/functions/webchat"; // ίδιο domain στη δοκιμή· στο site γίνεται πλήρες URL
+  var FONTS="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600&display=swap";
+  var l=document.createElement("link");l.rel="stylesheet";l.href=FONTS;document.head.appendChild(l);
+
+  var sid=localStorage.getItem("pcv_sid");
+  if(!sid){sid="web_"+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("pcv_sid",sid);}
+
+  var css=`
+  #pcv-fab{position:fixed;bottom:22px;right:22px;width:58px;height:58px;border-radius:50%;background:#0a0a0c;color:#fff;border:none;cursor:pointer;box-shadow:0 12px 30px -8px rgba(0,0,0,.5);font-size:26px;z-index:99998;transition:.25s;display:flex;align-items:center;justify-content:center}
+  #pcv-fab:hover{transform:scale(1.07)}
+  #pcv-panel{position:fixed;bottom:92px;right:22px;width:370px;max-width:calc(100vw - 28px);height:560px;max-height:calc(100vh - 120px);background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:22px;box-shadow:0 30px 70px -25px rgba(0,0,0,.4);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Manrope',system-ui,sans-serif}
+  #pcv-panel.open{display:flex}
+  #pcv-head{background:#0a0a0c;color:#fff;padding:17px 20px}
+  #pcv-head .t{font-family:'Fraunces',serif;font-weight:600;font-size:1.22rem}
+  #pcv-head .s{font-size:.78rem;opacity:.7;margin-top:2px}
+  #pcv-head .x{position:absolute;top:15px;right:16px;background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;opacity:.8}
+  #pcv-msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:9px;background:#f5f5f7}
+  .pcv-b{max-width:82%;padding:10px 14px;font-size:.93rem;line-height:1.4;border-radius:16px;white-space:pre-wrap;word-wrap:break-word}
+  .pcv-b.bot{background:#fff;border:1px solid rgba(0,0,0,.07);align-self:flex-start;border-bottom-left-radius:5px}
+  .pcv-b.me{background:#0a84ff;color:#fff;align-self:flex-end;border-bottom-right-radius:5px}
+  #pcv-foot{display:flex;gap:8px;padding:12px;border-top:1px solid rgba(0,0,0,.07);background:#fff}
+  #pcv-in{flex:1;border:1px solid rgba(0,0,0,.12);border-radius:999px;padding:11px 16px;font-family:inherit;font-size:.95rem;outline:none}
+  #pcv-in:focus{border-color:#0a84ff}
+  #pcv-send{flex:0 0 auto;width:42px;height:42px;border-radius:50%;background:#0a0a0c;color:#fff;border:none;cursor:pointer;font-size:1.1rem}
+  #pcv-send:disabled{opacity:.5}
+  .pcv-typing{align-self:flex-start;color:#6e6e73;font-size:.85rem;padding:4px 6px}`;
+  var st=document.createElement("style");st.textContent=css;document.head.appendChild(st);
+
+  var fab=document.createElement("button");fab.id="pcv-fab";fab.innerHTML="💬";document.body.appendChild(fab);
+  var panel=document.createElement("div");panel.id="pcv-panel";panel.innerHTML=`
+    <div id="pcv-head" style="position:relative">
+      <div class="t">Pcverse</div><div class="s">Ρώτησέ μας — απαντάμε αμέσως</div>
+      <button class="x" id="pcv-x">×</button>
+    </div>
+    <div id="pcv-msgs"></div>
+    <div id="pcv-foot">
+      <input id="pcv-in" placeholder="Γράψε μήνυμα…" autocomplete="off">
+      <button id="pcv-send">↑</button>
+    </div>`;
+  document.body.appendChild(panel);
+
+  var msgs=panel.querySelector("#pcv-msgs"),input=panel.querySelector("#pcv-in"),send=panel.querySelector("#pcv-send");
+  var opened=false,lastCount=0,poll=null;
+
+  function esc(s){return (s||"").replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function bubble(role,txt){var d=document.createElement("div");d.className="pcv-b "+(role==="user"?"me":"bot");d.innerHTML=esc(txt);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
+  function typing(on){var t=panel.querySelector(".pcv-typing");if(on&&!t){t=document.createElement("div");t.className="pcv-typing";t.textContent="γράφει…";msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;}if(!on&&t)t.remove();}
+
+  async function render(){
+    try{
+      var r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"messages",session_id:sid})});
+      var d=await r.json();var m=d.messages||[];
+      if(m.length!==lastCount){msgs.innerHTML="";m.forEach(function(x){bubble(x.role,x.content);});lastCount=m.length;}
+    }catch(e){}
+  }
+  async function sendMsg(){
+    var t=input.value.trim();if(!t)return;
+    input.value="";bubble("user",t);lastCount++;send.disabled=true;typing(true);
+    try{
+      var r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"send",session_id:sid,text:t})});
+      var d=await r.json();typing(false);
+      if(d.reply){bubble("assistant",d.reply);lastCount++;}
+      // αν paused → δεν απαντά AI· το polling θα φέρει την απάντηση του ιδιοκτήτη
+    }catch(e){typing(false);bubble("assistant","Ωχ, κάτι πήγε στραβά. Δοκίμασε ξανά.");}
+    send.disabled=false;input.focus();
+  }
+  function open(){panel.classList.add("open");opened=true;fab.innerHTML="×";if(!lastCount){bubble("assistant","Γεια σου! 👋 Πώς μπορώ να βοηθήσω; Ρώτησέ με για διαθέσιμα κινητά, τιμές, ή αν θες να πουλήσεις τη συσκευή σου.");}render();if(!poll)poll=setInterval(render,4000);input.focus();}
+  function close(){panel.classList.remove("open");opened=false;fab.innerHTML="💬";}
+  fab.onclick=function(){opened?close():open();};
+  panel.querySelector("#pcv-x").onclick=close;
+  send.onclick=sendMsg;
+  input.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();sendMsg();}});
+})();
+</script>
+<!-- ===================== PCVERSE CHAT WIDGET (end) ===================== -->
+</body>
+</html>

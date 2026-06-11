@@ -164,7 +164,7 @@ async function api(path,opts={}){
   return r.json();
 }
 function logout(){sessionStorage.removeItem("pv_key");KEY="";clearInterval(listTimer);clearInterval(chatTimer);show("login");}
-function fmtNum(n){return "+"+n;}
+function fmtNum(n){return n&&n.startsWith("web_")?"🌐 Επισκέπτης site":"+"+n;}
 
 function openList(){show("listView");loadList();clearInterval(listTimer);listTimer=setInterval(loadList,5000);clearInterval(chatTimer);}
 async function loadList(){
