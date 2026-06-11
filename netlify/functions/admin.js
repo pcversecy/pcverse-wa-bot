@@ -1,4 +1,4 @@
-// Admin API — login, list conversations, read a chat, send a reply, toggle AI on/off.
+// Admin API — login, list, read, send, toggle AI, mark read, tag, delete.
 
 const GRAPH_VERSION = "v21.0";
 const PAUSE_HOURS = 12;
@@ -9,68 +9,96 @@ exports.handler = async (event) => {
   const params = event.queryStringParameters || {};
   const action = params.action || body.action;
 
-  // --- Login ---
   if (event.httpMethod === "POST" && action === "login") {
-    if (body.email === process.env.ADMIN_EMAIL && body.password === process.env.ADMIN_PASSWORD) {
-      return json(200, { ok: true });
-    }
+    if (body.email === process.env.ADMIN_EMAIL && body.password === process.env.ADMIN_PASSWORD) return json(200, { ok: true });
     return json(401, { ok: false, error: "Λάθος στοιχεία" });
   }
 
-  // --- Auth for everything else ---
-  if (event.headers["x-admin-key"] !== process.env.ADMIN_PASSWORD) {
-    return json(401, { error: "Unauthorized" });
-  }
+  if (event.headers["x-admin-key"] !== process.env.ADMIN_PASSWORD) return json(401, { error: "Unauthorized" });
 
-  // --- List conversations ---
+  // List conversations (with channel, unread count, tag, paused)
   if (event.httpMethod === "GET" && action === "conversations") {
-    const msgs = await sb(`conversations?select=wa_id,role,content,created_at&order=created_at.desc&limit=400`);
-    const states = await sb(`chat_state?select=wa_id,paused_until,ai_enabled`);
+    const msgs = await sb(`conversations?select=wa_id,role,content,created_at&order=created_at.desc&limit=600`);
+    const states = await sb(`chat_state?select=wa_id,paused_until,ai_enabled,last_read_at,tag`);
     const stMap = {};
-    states.forEach((s) => {
-      const windowPaused = s.paused_until && new Date(s.paused_until) > new Date();
-      stMap[s.wa_id] = (s.ai_enabled === false) || windowPaused;
-    });
+    states.forEach((s) => { stMap[s.wa_id] = s; });
+
     const seen = {}, list = [];
+    let totalUnread = 0;
     for (const m of msgs) {
-      if (seen[m.wa_id]) continue;
-      seen[m.wa_id] = true;
-      list.push({ wa_id: m.wa_id, last: m.content, at: m.created_at, paused: !!stMap[m.wa_id] });
+      if (!seen[m.wa_id]) {
+        seen[m.wa_id] = { wa_id: m.wa_id, last: m.content, at: m.created_at, unread: 0 };
+        list.push(seen[m.wa_id]);
+      }
+      // unread = user messages after last_read_at
+      const st = stMap[m.wa_id];
+      const lastRead = st && st.last_read_at ? new Date(st.last_read_at) : null;
+      if (m.role === "user" && (!lastRead || new Date(m.created_at) > lastRead)) seen[m.wa_id].unread++;
     }
-    return json(200, { conversations: list });
+    list.forEach((c) => {
+      const st = stMap[c.wa_id] || {};
+      const windowPaused = st.paused_until && new Date(st.paused_until) > new Date();
+      c.paused = (st.ai_enabled === false) || windowPaused;
+      c.tag = st.tag || "open";
+      c.channel = c.wa_id.startsWith("web_") ? "web" : "wa";
+      totalUnread += c.unread;
+    });
+    return json(200, { conversations: list, totalUnread });
   }
 
-  // --- Read one chat (+ its AI state) ---
+  // Read one chat (+ state)
   if (event.httpMethod === "GET" && action === "messages") {
     const waId = params.wa_id;
     if (!waId) return json(400, { error: "missing wa_id" });
     const rows = await sb(`conversations?wa_id=eq.${encodeURIComponent(waId)}&select=role,content,created_at&order=created_at.asc`);
-    const st = await sb(`chat_state?wa_id=eq.${encodeURIComponent(waId)}&select=ai_enabled,paused_until`);
-    const state = st[0] || { ai_enabled: true, paused_until: null };
+    const st = await sb(`chat_state?wa_id=eq.${encodeURIComponent(waId)}&select=ai_enabled,paused_until,tag`);
+    const state = st[0] || { ai_enabled: true, paused_until: null, tag: "open" };
     return json(200, { messages: rows, state });
   }
 
-  // --- Send a reply (auto 12h pause) ---
+  // Send reply (auto 12h pause; skip WhatsApp for web visitors)
   if (event.httpMethod === "POST" && action === "send") {
     const { wa_id, text } = body;
     if (!wa_id || !text) return json(400, { error: "missing wa_id/text" });
-    // Website visitors (web_*) have no WhatsApp number — their widget polls for the reply instead.
-    if (!wa_id.startsWith("web_")) {
-      await sendWhatsApp(wa_id, text);
-    }
+    if (!wa_id.startsWith("web_")) await sendWhatsApp(wa_id, text);
     await sbInsert("conversations", [{ wa_id, role: "assistant", content: text }]);
     const until = new Date(Date.now() + PAUSE_HOURS * 3600 * 1000).toISOString();
     await sbUpsert("chat_state", { wa_id, paused_until: until, updated_at: new Date().toISOString() }, "wa_id");
     return json(200, { ok: true });
   }
 
-  // --- Toggle AI on/off (manual switch) ---
+  // Toggle AI on/off
   if (event.httpMethod === "POST" && action === "toggle") {
     const { wa_id, ai_enabled } = body;
     if (!wa_id || typeof ai_enabled !== "boolean") return json(400, { error: "missing wa_id/ai_enabled" });
     const row = { wa_id, ai_enabled, updated_at: new Date().toISOString() };
-    if (ai_enabled === true) row.paused_until = null; // turning AI on also clears the 12h window
+    if (ai_enabled === true) row.paused_until = null;
     await sbUpsert("chat_state", row, "wa_id");
+    return json(200, { ok: true });
+  }
+
+  // Mark a conversation as read
+  if (event.httpMethod === "POST" && action === "markread") {
+    const { wa_id } = body;
+    if (!wa_id) return json(400, { error: "missing wa_id" });
+    await sbUpsert("chat_state", { wa_id, last_read_at: new Date().toISOString(), updated_at: new Date().toISOString() }, "wa_id");
+    return json(200, { ok: true });
+  }
+
+  // Set a tag (open / closed / important)
+  if (event.httpMethod === "POST" && action === "tag") {
+    const { wa_id, tag } = body;
+    if (!wa_id || !tag) return json(400, { error: "missing wa_id/tag" });
+    await sbUpsert("chat_state", { wa_id, tag, updated_at: new Date().toISOString() }, "wa_id");
+    return json(200, { ok: true });
+  }
+
+  // Delete a conversation (messages + state)
+  if (event.httpMethod === "POST" && action === "delete") {
+    const { wa_id } = body;
+    if (!wa_id) return json(400, { error: "missing wa_id" });
+    await sbDelete(`conversations?wa_id=eq.${encodeURIComponent(wa_id)}`);
+    await sbDelete(`chat_state?wa_id=eq.${encodeURIComponent(wa_id)}`);
     return json(200, { ok: true });
   }
 
@@ -94,6 +122,10 @@ async function sbUpsert(table, row, onConflict) {
   const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`, {
     method: "POST", headers: { ...sbHeaders(), "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([row]),
   });
+  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+}
+async function sbDelete(path) {
+  const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, { method: "DELETE", headers: { ...sbHeaders(), Prefer: "return=minimal" } });
   if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
 }
 async function sendWhatsApp(to, text) {
