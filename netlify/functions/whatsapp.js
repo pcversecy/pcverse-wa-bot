@@ -1,5 +1,5 @@
 // WhatsApp webhook — Netlify Function
-// Phase 5 + tuned persona: Claude + inventory + memory, with Pcverse sales rules.
+// Phase 6: Claude + inventory + memory + HUMAN HANDOFF (pause when owner replies).
 
 const GRAPH_VERSION = "v21.0";
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
@@ -19,28 +19,18 @@ function buildSystemPrompt(productList) {
 - Μη δίνεις ποτέ στοιχεία πληρωμής/λογαριασμού (Revolut/τράπεζα). Αυτά τα δίνει ο συνάδελφος.
 
 ΑΝ Ο ΠΕΛΑΤΗΣ ΘΕΛΕΙ ΝΑ ΑΓΟΡΑΣΕΙ:
-- Κοίτα ΜΟΝΟ τη λίστα αποθέματος. Αν υπάρχει: πες τίτλο, βασικά χαρακτηριστικά (αποθηκευτικό, χρώμα, μπαταρία/κατάσταση) και ΤΙΜΗ.
-- Αν δεν υπάρχει: πες το ευγενικά και πρότεινε 1-2 παρόμοια διαθέσιμα από τη λίστα.
-- ΟΧΙ ΠΑΖΑΡΙΑ: η τιμή είναι σταθερή. Αν ζητήσει έκπτωση/"κάτι καλύτερο", μην κατεβάζεις τιμή.
-  Κράτα την ευγενικά και τόνισε την αξία (άριστη κατάσταση, μπαταρία, με κουτί, αξιόπιστος ιδιώτης).
-- ΠΕΙΘΕ ΣΩΣΤΑ: ανάδειξε τα δυνατά σημεία της συσκευής, χωρίς πίεση ή υπερβολές.
-- ΠΑΡΑΔΟΣΗ: δύο τρόποι — (α) συνάντηση σε σημείο, ή (β) αποστολή. Για αποστολή, η πληρωμή
-  γίνεται πρώτα (Revolut ή Eurobank) και μετά στέλνεται η συσκευή. Πες το ως κανονική, ασφαλή διαδικασία.
-- ΠΕΡΙΟΧΗ/ΧΡΕΩΣΗ: ο ιδιοκτήτης είναι στη Λευκωσία. Ρώτα διακριτικά σε ποια πόλη είναι ο πελάτης.
-  Αν είναι ΕΚΤΟΣ Λευκωσίας, ενημέρωσε ότι υπάρχει έξτρα χρέωση για delivery (το ακριβές ποσό το λέει ο συνάδελφος).
-- ΟΤΑΝ ΚΛΕΙΝΕΙ DEAL (ο πελάτης λέει ναι/θέλω να το πάρω): μην κανονίζεις εσύ λεπτομέρειες.
-  Πες ότι θα επικοινωνήσει ο συνάδελφος για να τα κανονίσετε.
+- Κοίτα ΜΟΝΟ τη λίστα αποθέματος. Αν υπάρχει: πες τίτλο, χαρακτηριστικά (αποθηκευτικό, χρώμα, μπαταρία/κατάσταση) και ΤΙΜΗ.
+- Αν δεν υπάρχει: πες το ευγενικά και πρότεινε 1-2 παρόμοια διαθέσιμα.
+- ΟΧΙ ΠΑΖΑΡΙΑ: η τιμή είναι σταθερή. Κράτα την ευγενικά, τόνισε την αξία.
+- ΠΕΡΙΟΧΗ: ο ιδιοκτήτης είναι στη Λευκωσία. Ρώτα διακριτικά την πόλη του πελάτη. Αν είναι εκτός Λευκωσίας, πες ότι υπάρχει έξτρα χρέωση για delivery (ποσό το λέει ο συνάδελφος).
+- ΠΑΡΑΔΟΣΗ: (α) συνάντηση σε σημείο, ή (β) αποστολή με προπληρωμή (Revolut/Eurobank) και μετά αποστολή.
+- ΟΤΑΝ ΚΛΕΙΝΕΙ DEAL: μην κανονίζεις λεπτομέρειες — πες ότι θα επικοινωνήσει ο συνάδελφος.
 
-ΑΝ ΔΕΝ ΚΛΕΙΣΕΙ ΑΓΟΡΑ (αρνείται, διστάζει, ή φεύγει η κουβέντα):
-- Ρώτα ευγενικά αν έχει κάποιο δικό του iPhone (ή άλλη συσκευή) που θέλει να ΠΟΥΛΗΣΕΙ.
+ΑΝ ΔΕΝ ΚΛΕΙΣΕΙ ΑΓΟΡΑ: ρώτα ευγενικά αν έχει δικό του iPhone/συσκευή να ΠΟΥΛΗΣΕΙ.
 
-ΑΝ Ο ΠΕΛΑΤΗΣ ΘΕΛΕΙ ΝΑ ΠΟΥΛΗΣΕΙ σε εμάς:
-- ΠΟΤΕ μη δίνεις τιμή/εκτίμηση — εξαρτάται από την κατάσταση.
-- Μάζεψε: μοντέλο, αποθηκευτικό χώρο, κατάσταση (γρατζουνιές/οθόνη), υγεία μπαταρίας.
-- Μετά πες ότι ο συνάδελφος θα στείλει προσφορά σύντομα.
+ΑΝ ΘΕΛΕΙ ΝΑ ΠΟΥΛΗΣΕΙ: ΠΟΤΕ τιμή/εκτίμηση. Μάζεψε μοντέλο, αποθηκευτικό, κατάσταση, μπαταρία· μετά πες ότι θα στείλει προσφορά ο συνάδελφος.
 
-ΑΝ ΘΕΛΕΙ ΕΠΙΣΚΕΥΗ:
-- Ρώτα συσκευή και πρόβλημα, και πες ότι θα επικοινωνήσει ο συνάδελφος.
+ΑΝ ΘΕΛΕΙ ΕΠΙΣΚΕΥΗ: ρώτα συσκευή+πρόβλημα, και πες ότι θα επικοινωνήσει ο συνάδελφος.
 
 ΔΙΑΘΕΣΙΜΟ ΑΠΟΘΕΜΑ ΑΥΤΗ ΤΗ ΣΤΙΓΜΗ:
 ${productList}`;
@@ -48,9 +38,9 @@ ${productList}`;
 
 exports.handler = async (event) => {
   if (event.httpMethod === "GET") {
-    const params = event.queryStringParameters || {};
-    if (params["hub.mode"] === "subscribe" && params["hub.verify_token"] === process.env.VERIFY_TOKEN) {
-      return { statusCode: 200, body: params["hub.challenge"] };
+    const p = event.queryStringParameters || {};
+    if (p["hub.mode"] === "subscribe" && p["hub.verify_token"] === process.env.VERIFY_TOKEN) {
+      return { statusCode: 200, body: p["hub.challenge"] };
     }
     return { statusCode: 403, body: "Forbidden" };
   }
@@ -65,22 +55,29 @@ exports.handler = async (event) => {
         const from = message.from;
         const text = message.text.body;
 
-        let productList = "(Δεν ήταν δυνατή η ανάγνωση αποθέματος.)";
-        try { productList = formatProducts(await fetchAvailableProducts()); }
-        catch (e) { console.error("Supabase products error:", e); }
-
+        // history BEFORE saving the new message
         let history = [];
-        try { history = await fetchHistory(from); }
-        catch (e) { console.error("History read error:", e); }
+        try { history = await fetchHistory(from); } catch (e) { console.error("history read", e); }
 
+        // save incoming (so it shows in the admin inbox, even if AI is paused)
+        try { await saveMessage(from, "user", text); } catch (e) { console.error("save user", e); }
+
+        // HANDOFF: if the owner has taken over recently, AI stays silent
+        let paused = false;
+        try { paused = await isPaused(from); } catch (e) { console.error("pause check", e); }
+        if (paused) return { statusCode: 200, body: "EVENT_RECEIVED" };
+
+        // inventory
+        let productList = "(Δεν ήταν δυνατή η ανάγνωση αποθέματος.)";
+        try { productList = formatProducts(await fetchAvailableProducts()); } catch (e) { console.error("products", e); }
+
+        // Claude
         let reply;
         try { reply = await askClaude(history, text, buildSystemPrompt(productList)); }
-        catch (err) { console.error("Claude error:", err); reply = "Ένα λεπτό, σε συνδέω με συνάδελφο να σε εξυπηρετήσει. 🙏"; }
+        catch (err) { console.error("claude", err); reply = "Ένα λεπτό, σε συνδέω με συνάδελφο. 🙏"; }
 
         await sendWhatsAppMessage(from, reply);
-
-        try { await saveMessages(from, text, reply); }
-        catch (e) { console.error("History save error:", e); }
+        try { await saveMessage(from, "assistant", reply); } catch (e) { console.error("save assistant", e); }
       }
 
       return { statusCode: 200, body: "EVENT_RECEIVED" };
@@ -93,10 +90,19 @@ exports.handler = async (event) => {
   return { statusCode: 405, body: "Method Not Allowed" };
 };
 
+async function isPaused(waId) {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/chat_state?wa_id=eq.${encodeURIComponent(waId)}&select=paused_until`;
+  const res = await fetch(url, { headers: supabaseHeaders() });
+  if (!res.ok) return false;
+  const rows = await res.json();
+  const until = rows?.[0]?.paused_until;
+  return until ? new Date(until) > new Date() : false;
+}
+
 async function fetchAvailableProducts() {
   const url = `${process.env.SUPABASE_URL}/rest/v1/products?sold=eq.false&select=title,spec_el,price,cat,chips_el`;
   const res = await fetch(url, { headers: supabaseHeaders() });
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
   return res.json();
 }
 
@@ -112,22 +118,19 @@ function formatProducts(products) {
 async function fetchHistory(waId) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/conversations?wa_id=eq.${encodeURIComponent(waId)}&select=role,content&order=created_at.desc&limit=${HISTORY_LIMIT}`;
   const res = await fetch(url, { headers: supabaseHeaders() });
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
   const rows = await res.json();
   return rows.reverse().map((r) => ({ role: r.role, content: r.content }));
 }
 
-async function saveMessages(waId, userText, assistantText) {
+async function saveMessage(waId, role, content) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/conversations`;
   const res = await fetch(url, {
     method: "POST",
     headers: { ...supabaseHeaders(), "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify([
-      { wa_id: waId, role: "user", content: userText },
-      { wa_id: waId, role: "assistant", content: assistantText },
-    ]),
+    body: JSON.stringify([{ wa_id: waId, role, content }]),
   });
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
 }
 
 function supabaseHeaders() {
@@ -141,10 +144,9 @@ async function askClaude(history, userText, systemPrompt) {
     headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 400, system: systemPrompt, messages }),
   });
-  if (!res.ok) throw new Error(`Claude API ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Claude ${res.status}`);
   const data = await res.json();
-  const textBlock = data.content?.find((b) => b.type === "text");
-  return textBlock?.text || "Συγγνώμη, δεν κατάλαβα. Μπορείς να το πεις αλλιώς;";
+  return data.content?.find((b) => b.type === "text")?.text || "Συγγνώμη, δεν κατάλαβα.";
 }
 
 async function sendWhatsAppMessage(to, text) {

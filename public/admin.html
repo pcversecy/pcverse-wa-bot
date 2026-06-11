@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pcverse Inbox</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family: -apple-system, system-ui, sans-serif; background:#0f1115; color:#e8eaed; }
+  .hidden { display:none !important; }
+  .center { min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .card { background:#1a1d24; border:1px solid #2a2e38; border-radius:16px; padding:24px; width:100%; max-width:360px; }
+  h1 { font-size:20px; margin:0 0 16px; }
+  input, textarea { width:100%; padding:12px; margin:6px 0; background:#11141a; border:1px solid #2a2e38; border-radius:10px; color:#e8eaed; font-size:16px; }
+  button { background:#2563eb; color:#fff; border:0; border-radius:10px; padding:12px 16px; font-size:16px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  .err { color:#f87171; font-size:14px; margin-top:8px; min-height:18px; }
+  header { padding:14px 16px; border-bottom:1px solid #2a2e38; display:flex; align-items:center; gap:12px; position:sticky; top:0; background:#0f1115; }
+  header .back { font-size:22px; cursor:pointer; }
+  header h2 { font-size:16px; margin:0; }
+  .list-item { padding:14px 16px; border-bottom:1px solid #1f232c; cursor:pointer; }
+  .list-item .num { font-weight:600; font-size:15px; }
+  .list-item .prev { color:#9aa0aa; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px; }
+  .badge { font-size:11px; background:#92400e; color:#fde68a; padding:2px 7px; border-radius:8px; margin-left:6px; }
+  .msgs { padding:14px; padding-bottom:90px; }
+  .bubble { max-width:78%; padding:9px 12px; border-radius:14px; margin:6px 0; font-size:15px; line-height:1.35; white-space:pre-wrap; word-wrap:break-word; }
+  .user { background:#1f232c; align-self:flex-start; border-bottom-left-radius:4px; }
+  .assistant { background:#2563eb; color:#fff; margin-left:auto; border-bottom-right-radius:4px; }
+  .row { display:flex; }
+  .composer { position:fixed; bottom:0; left:0; right:0; background:#0f1115; border-top:1px solid #2a2e38; padding:10px; display:flex; gap:8px; }
+  .composer textarea { margin:0; resize:none; height:44px; }
+  .composer button { flex:0 0 auto; }
+  .muted { color:#9aa0aa; font-size:13px; text-align:center; padding:20px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" class="center">
+  <div class="card">
+    <h1>Pcverse Inbox</h1>
+    <input id="email" type="email" placeholder="Email" autocomplete="username">
+    <input id="password" type="password" placeholder="Κωδικός" autocomplete="current-password">
+    <button id="loginBtn" style="width:100%; margin-top:8px;">Σύνδεση</button>
+    <div id="loginErr" class="err"></div>
+  </div>
+</div>
+
+<!-- LIST -->
+<div id="listView" class="hidden">
+  <header><h2>Συνομιλίες</h2></header>
+  <div id="list"></div>
+</div>
+
+<!-- CHAT -->
+<div id="chatView" class="hidden">
+  <header><span class="back" onclick="closeChat()">‹</span><h2 id="chatTitle"></h2></header>
+  <div id="msgs" class="msgs"></div>
+  <div class="composer">
+    <textarea id="reply" placeholder="Γράψε απάντηση…"></textarea>
+    <button id="sendBtn" onclick="sendReply()">Στείλε</button>
+  </div>
+</div>
+
+<script>
+const API = "/.netlify/functions/admin";
+let KEY = sessionStorage.getItem("pv_key") || "";
+let current = null, listTimer = null, chatTimer = null;
+
+function show(id){ ["login","listView","chatView"].forEach(v=>document.getElementById(v).classList.toggle("hidden", v!==id)); }
+
+document.getElementById("loginBtn").onclick = async () => {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const btn = document.getElementById("loginBtn"); btn.disabled = true;
+  document.getElementById("loginErr").textContent = "";
+  try {
+    const r = await fetch(API, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"login", email, password}) });
+    const d = await r.json();
+    if (d.ok) { KEY = password; sessionStorage.setItem("pv_key", KEY); openList(); }
+    else document.getElementById("loginErr").textContent = d.error || "Αποτυχία";
+  } catch { document.getElementById("loginErr").textContent = "Σφάλμα σύνδεσης"; }
+  btn.disabled = false;
+};
+
+async function api(path, opts={}) {
+  opts.headers = Object.assign({ "x-admin-key": KEY }, opts.headers||{});
+  const r = await fetch(API + path, opts);
+  if (r.status === 401) { sessionStorage.removeItem("pv_key"); show("login"); throw new Error("auth"); }
+  return r.json();
+}
+
+function fmtNum(n){ return "+" + n; }
+function openList(){
+  show("listView");
+  loadList();
+  clearInterval(listTimer); listTimer = setInterval(loadList, 5000);
+  clearInterval(chatTimer);
+}
+async function loadList(){
+  try {
+    const d = await api("?action=conversations");
+    const el = document.getElementById("list");
+    if (!d.conversations || !d.conversations.length){ el.innerHTML = '<div class="muted">Καμία συνομιλία ακόμα.</div>'; return; }
+    el.innerHTML = d.conversations.map(c =>
+      `<div class="list-item" onclick="openChat('${c.wa_id}')">
+        <div class="num">${fmtNum(c.wa_id)}${c.paused?'<span class="badge">εσύ απαντάς</span>':''}</div>
+        <div class="prev">${escapeHtml(c.last)}</div>
+      </div>`).join("");
+  } catch {}
+}
+async function openChat(waId){
+  current = waId;
+  document.getElementById("chatTitle").textContent = fmtNum(waId);
+  show("chatView");
+  loadChat();
+  clearInterval(listTimer); clearInterval(chatTimer);
+  chatTimer = setInterval(loadChat, 4000);
+}
+async function loadChat(){
+  try {
+    const d = await api("?action=messages&wa_id=" + encodeURIComponent(current));
+    const el = document.getElementById("msgs");
+    el.innerHTML = (d.messages||[]).map(m =>
+      `<div class="row"><div class="bubble ${m.role==='user'?'user':'assistant'}">${escapeHtml(m.content)}</div></div>`).join("");
+    el.scrollTop = el.scrollHeight;
+  } catch {}
+}
+function closeChat(){ current=null; openList(); }
+async function sendReply(){
+  const ta = document.getElementById("reply"); const text = ta.value.trim();
+  if (!text || !current) return;
+  const btn = document.getElementById("sendBtn"); btn.disabled = true;
+  try { await api("", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"send", wa_id: current, text}) }); ta.value=""; await loadChat(); }
+  catch {} btn.disabled = false;
+}
+function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+if (KEY) openList(); else show("login");
+</script>
+</body>
+</html>
