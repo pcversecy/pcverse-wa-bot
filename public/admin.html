@@ -3,140 +3,201 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pcverse Inbox</title>
+<title>Pcverse · Inbox</title>
+<link rel="icon" type="image/png" href="logo-dark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin:0; font-family: -apple-system, system-ui, sans-serif; background:#0f1115; color:#e8eaed; }
-  .hidden { display:none !important; }
-  .center { min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px; }
-  .card { background:#1a1d24; border:1px solid #2a2e38; border-radius:16px; padding:24px; width:100%; max-width:360px; }
-  h1 { font-size:20px; margin:0 0 16px; }
-  input, textarea { width:100%; padding:12px; margin:6px 0; background:#11141a; border:1px solid #2a2e38; border-radius:10px; color:#e8eaed; font-size:16px; }
-  button { background:#2563eb; color:#fff; border:0; border-radius:10px; padding:12px 16px; font-size:16px; font-weight:600; cursor:pointer; }
-  button:disabled { opacity:.5; }
-  .err { color:#f87171; font-size:14px; margin-top:8px; min-height:18px; }
-  header { padding:14px 16px; border-bottom:1px solid #2a2e38; display:flex; align-items:center; gap:12px; position:sticky; top:0; background:#0f1115; }
-  header .back { font-size:22px; cursor:pointer; }
-  header h2 { font-size:16px; margin:0; }
-  .list-item { padding:14px 16px; border-bottom:1px solid #1f232c; cursor:pointer; }
-  .list-item .num { font-weight:600; font-size:15px; }
-  .list-item .prev { color:#9aa0aa; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px; }
-  .badge { font-size:11px; background:#92400e; color:#fde68a; padding:2px 7px; border-radius:8px; margin-left:6px; }
-  .msgs { padding:14px; padding-bottom:90px; }
-  .bubble { max-width:78%; padding:9px 12px; border-radius:14px; margin:6px 0; font-size:15px; line-height:1.35; white-space:pre-wrap; word-wrap:break-word; }
-  .user { background:#1f232c; align-self:flex-start; border-bottom-left-radius:4px; }
-  .assistant { background:#2563eb; color:#fff; margin-left:auto; border-bottom-right-radius:4px; }
-  .row { display:flex; }
-  .composer { position:fixed; bottom:0; left:0; right:0; background:#0f1115; border-top:1px solid #2a2e38; padding:10px; display:flex; gap:8px; }
-  .composer textarea { margin:0; resize:none; height:44px; }
-  .composer button { flex:0 0 auto; }
-  .muted { color:#9aa0aa; font-size:13px; text-align:center; padding:20px; }
+:root{
+  --bg:#fbfbfd;--bg-2:#f5f5f7;--card:#ffffff;
+  --ink:#0a0a0c;--ink-2:#1d1d1f;--muted:#6e6e73;--muted-2:#a1a1a6;
+  --line:rgba(0,0,0,.08);--line-hi:rgba(0,0,0,.14);
+  --accent:#0a84ff;--accent-soft:rgba(10,132,255,.08);--verified:#1db954;
+  --radius:20px;
+  --display:'Fraunces',Georgia,serif;--body:'Manrope',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--ink-2);font-family:var(--body);-webkit-font-smoothing:antialiased;line-height:1.55}
+.hidden{display:none!important}
+
+/* ---------- LOGIN ---------- */
+.login-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:38px 30px;width:100%;max-width:380px;box-shadow:0 24px 60px -30px rgba(0,0,0,.25)}
+.login-logo{text-align:center;margin-bottom:6px}
+.login-logo img{height:40px}
+.login-card h1{font-family:var(--display);font-weight:600;font-size:1.7rem;letter-spacing:-.02em;color:var(--ink);text-align:center;margin-bottom:4px}
+.login-card .sub{text-align:center;color:var(--muted);font-size:.9rem;margin-bottom:26px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.82rem;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+.field input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:13px 15px;font-family:var(--body);font-size:1rem;color:var(--ink);transition:.2s}
+.field input:focus{outline:none;border-color:var(--accent);background:var(--card)}
+.btn-primary{width:100%;background:var(--ink);color:#fff;border:none;border-radius:999px;padding:14px;font-family:var(--body);font-size:1rem;font-weight:700;cursor:pointer;transition:.22s;margin-top:8px}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 30px -12px rgba(0,0,0,.4)}
+.btn-primary:disabled{opacity:.5;transform:none;box-shadow:none;cursor:default}
+.err{color:#e0245e;font-size:.86rem;font-weight:600;margin-top:12px;min-height:18px;text-align:center}
+
+/* ---------- APP SHELL ---------- */
+.topbar{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(20px);background:rgba(251,251,253,.8);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:760px;margin:0 auto;height:58px;display:flex;align-items:center;gap:12px;padding:0 18px}
+.topbar .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1.1rem;letter-spacing:-.03em;color:var(--ink);text-decoration:none}
+.topbar .brand img{height:24px}
+.topbar .tag{font-family:var(--body);font-weight:600;font-size:.78rem;color:var(--muted);border-left:1px solid var(--line-hi);padding-left:12px}
+.topbar .back{font-size:1.5rem;color:var(--ink);cursor:pointer;line-height:1;background:none;border:none;padding:0 4px 0 0}
+.topbar .peer{margin-left:auto;display:flex;align-items:center;gap:7px;font-weight:700;font-size:.92rem;color:var(--ink)}
+.topbar .logout{margin-left:auto;background:none;border:1px solid var(--line-hi);border-radius:999px;padding:7px 14px;font-family:var(--body);font-weight:600;font-size:.82rem;color:var(--muted);cursor:pointer;transition:.2s}
+.topbar .logout:hover{color:var(--ink);border-color:var(--ink)}
+.shell{max-width:760px;margin:0 auto;padding:0 18px}
+
+/* ---------- LIST ---------- */
+.list-head{font-family:var(--display);font-weight:600;font-size:1.5rem;letter-spacing:-.02em;color:var(--ink);padding:24px 2px 14px}
+.conv{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 16px;margin-bottom:10px;cursor:pointer;transition:.22s cubic-bezier(.2,.7,.3,1)}
+.conv:hover{transform:translateY(-2px);box-shadow:0 16px 34px -22px rgba(0,0,0,.3);border-color:var(--line-hi)}
+.conv .avatar{flex:0 0 44px;width:44px;height:44px;border-radius:50%;background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--muted)}
+.conv .meta{flex:1;min-width:0}
+.conv .num{font-weight:700;font-size:.98rem;color:var(--ink);display:flex;align-items:center;gap:8px}
+.conv .prev{color:var(--muted);font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.pill-paused{font-size:.68rem;font-weight:700;background:var(--accent-soft);color:var(--accent);padding:3px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.pill-paused .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(10,132,255,.45)}70%{box-shadow:0 0 0 7px rgba(10,132,255,0)}100%{box-shadow:0 0 0 0 rgba(10,132,255,0)}}
+.empty{text-align:center;color:var(--muted);font-size:.95rem;padding:60px 20px}
+.empty .ico{font-size:2.4rem;margin-bottom:12px;opacity:.5}
+
+/* ---------- CHAT ---------- */
+.msgs{padding:18px 2px 120px;display:flex;flex-direction:column;gap:8px}
+.bubble{max-width:80%;padding:11px 15px;font-size:.96rem;line-height:1.4;white-space:pre-wrap;word-wrap:break-word;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.bubble.user{background:var(--card);border:1px solid var(--line);color:var(--ink-2);align-self:flex-start;border-radius:18px 18px 18px 5px}
+.bubble.assistant{background:var(--ink);color:#fff;align-self:flex-end;border-radius:18px 18px 5px 18px}
+.daypin{align-self:center;font-size:.74rem;color:var(--muted-2);font-weight:600;background:var(--bg-2);padding:4px 12px;border-radius:999px;margin:6px 0}
+.composer{position:fixed;bottom:0;left:0;right:0;background:rgba(251,251,253,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:12px}
+.composer-in{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
+.composer textarea{flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 16px;font-family:var(--body);font-size:1rem;color:var(--ink);resize:none;height:46px;max-height:120px;transition:.2s}
+.composer textarea:focus{outline:none;border-color:var(--accent)}
+.composer .send{flex:0 0 auto;background:var(--ink);color:#fff;border:none;border-radius:999px;width:46px;height:46px;font-size:1.2rem;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center}
+.composer .send:hover{background:var(--accent)}
+.composer .send:disabled{opacity:.5;cursor:default}
+.note{max-width:760px;margin:0 auto;font-size:.74rem;color:var(--muted-2);text-align:center;padding-top:8px}
 </style>
 </head>
 <body>
 
 <!-- LOGIN -->
-<div id="login" class="center">
-  <div class="card">
-    <h1>Pcverse Inbox</h1>
-    <input id="email" type="email" placeholder="Email" autocomplete="username">
-    <input id="password" type="password" placeholder="Κωδικός" autocomplete="current-password">
-    <button id="loginBtn" style="width:100%; margin-top:8px;">Σύνδεση</button>
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo"><img src="logo-dark.png" alt="Pcverse" onerror="this.style.display='none'"></div>
+    <h1>Inbox</h1>
+    <div class="sub">Πίνακας συνομιλιών Pcverse</div>
+    <div class="field"><label>Email</label><input id="email" type="email" autocomplete="username" placeholder="email@pcverse.cy"></div>
+    <div class="field"><label>Κωδικός</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <button id="loginBtn" class="btn-primary">Σύνδεση</button>
     <div id="loginErr" class="err"></div>
   </div>
 </div>
 
 <!-- LIST -->
 <div id="listView" class="hidden">
-  <header><h2>Συνομιλίες</h2></header>
-  <div id="list"></div>
+  <div class="topbar"><div class="topbar-in">
+    <a class="brand"><img src="logo-dark.png" alt="" onerror="this.style.display='none'">Pcverse</a>
+    <span class="tag">Inbox</span>
+    <button class="logout" onclick="logout()">Έξοδος</button>
+  </div></div>
+  <div class="shell">
+    <div class="list-head">Συνομιλίες</div>
+    <div id="list"></div>
+  </div>
 </div>
 
 <!-- CHAT -->
 <div id="chatView" class="hidden">
-  <header><span class="back" onclick="closeChat()">‹</span><h2 id="chatTitle"></h2></header>
-  <div id="msgs" class="msgs"></div>
+  <div class="topbar"><div class="topbar-in">
+    <button class="back" onclick="closeChat()">‹</button>
+    <span class="peer" id="chatTitle"></span>
+  </div></div>
+  <div class="shell"><div id="msgs" class="msgs"></div></div>
   <div class="composer">
-    <textarea id="reply" placeholder="Γράψε απάντηση…"></textarea>
-    <button id="sendBtn" onclick="sendReply()">Στείλε</button>
+    <div class="composer-in">
+      <textarea id="reply" placeholder="Γράψε απάντηση…" oninput="autishise(this)"></textarea>
+      <button class="send" id="sendBtn" onclick="sendReply()">↑</button>
+    </div>
+    <div class="note">Μόλις απαντήσεις, το AI παγώνει για 12 ώρες σε αυτή τη συνομιλία.</div>
   </div>
 </div>
 
 <script>
-const API = "/.netlify/functions/admin";
-let KEY = sessionStorage.getItem("pv_key") || "";
-let current = null, listTimer = null, chatTimer = null;
+const API="/.netlify/functions/admin";
+let KEY=sessionStorage.getItem("pv_key")||"";
+let current=null,listTimer=null,chatTimer=null;
 
-function show(id){ ["login","listView","chatView"].forEach(v=>document.getElementById(v).classList.toggle("hidden", v!==id)); }
+function show(id){["login","listView","chatView"].forEach(v=>document.getElementById(v).classList.toggle("hidden",v!==id));}
+function autishise(t){t.style.height="46px";t.style.height=Math.min(t.scrollHeight,120)+"px";}
 
-document.getElementById("loginBtn").onclick = async () => {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-  const btn = document.getElementById("loginBtn"); btn.disabled = true;
-  document.getElementById("loginErr").textContent = "";
-  try {
-    const r = await fetch(API, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"login", email, password}) });
-    const d = await r.json();
-    if (d.ok) { KEY = password; sessionStorage.setItem("pv_key", KEY); openList(); }
-    else document.getElementById("loginErr").textContent = d.error || "Αποτυχία";
-  } catch { document.getElementById("loginErr").textContent = "Σφάλμα σύνδεσης"; }
-  btn.disabled = false;
+document.getElementById("loginBtn").onclick=async()=>{
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+  const btn=document.getElementById("loginBtn");btn.disabled=true;
+  document.getElementById("loginErr").textContent="";
+  try{
+    const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"login",email,password})});
+    const d=await r.json();
+    if(d.ok){KEY=password;sessionStorage.setItem("pv_key",KEY);openList();}
+    else document.getElementById("loginErr").textContent=d.error||"Αποτυχία σύνδεσης";
+  }catch{document.getElementById("loginErr").textContent="Σφάλμα σύνδεσης";}
+  btn.disabled=false;
 };
+document.getElementById("password").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("loginBtn").click();});
 
-async function api(path, opts={}) {
-  opts.headers = Object.assign({ "x-admin-key": KEY }, opts.headers||{});
-  const r = await fetch(API + path, opts);
-  if (r.status === 401) { sessionStorage.removeItem("pv_key"); show("login"); throw new Error("auth"); }
+async function api(path,opts={}){
+  opts.headers=Object.assign({"x-admin-key":KEY},opts.headers||{});
+  const r=await fetch(API+path,opts);
+  if(r.status===401){logout();throw new Error("auth");}
   return r.json();
 }
+function logout(){sessionStorage.removeItem("pv_key");KEY="";clearInterval(listTimer);clearInterval(chatTimer);show("login");}
+function fmtNum(n){return "+"+n;}
 
-function fmtNum(n){ return "+" + n; }
-function openList(){
-  show("listView");
-  loadList();
-  clearInterval(listTimer); listTimer = setInterval(loadList, 5000);
-  clearInterval(chatTimer);
-}
+function openList(){show("listView");loadList();clearInterval(listTimer);listTimer=setInterval(loadList,5000);clearInterval(chatTimer);}
 async function loadList(){
-  try {
-    const d = await api("?action=conversations");
-    const el = document.getElementById("list");
-    if (!d.conversations || !d.conversations.length){ el.innerHTML = '<div class="muted">Καμία συνομιλία ακόμα.</div>'; return; }
-    el.innerHTML = d.conversations.map(c =>
-      `<div class="list-item" onclick="openChat('${c.wa_id}')">
-        <div class="num">${fmtNum(c.wa_id)}${c.paused?'<span class="badge">εσύ απαντάς</span>':''}</div>
-        <div class="prev">${escapeHtml(c.last)}</div>
+  try{
+    const d=await api("?action=conversations");
+    const el=document.getElementById("list");
+    if(!d.conversations||!d.conversations.length){el.innerHTML='<div class="empty"><div class="ico">💬</div>Καμία συνομιλία ακόμα.</div>';return;}
+    el.innerHTML=d.conversations.map(c=>`
+      <div class="conv" onclick="openChat('${c.wa_id}')">
+        <div class="avatar">👤</div>
+        <div class="meta">
+          <div class="num">${fmtNum(c.wa_id)}${c.paused?'<span class="pill-paused"><span class="pulse"></span>εσύ απαντάς</span>':''}</div>
+          <div class="prev">${escapeHtml(c.last)}</div>
+        </div>
       </div>`).join("");
-  } catch {}
+  }catch{}
 }
 async function openChat(waId){
-  current = waId;
-  document.getElementById("chatTitle").textContent = fmtNum(waId);
-  show("chatView");
-  loadChat();
-  clearInterval(listTimer); clearInterval(chatTimer);
-  chatTimer = setInterval(loadChat, 4000);
+  current=waId;
+  document.getElementById("chatTitle").textContent=fmtNum(waId);
+  show("chatView");loadChat();
+  clearInterval(listTimer);clearInterval(chatTimer);chatTimer=setInterval(loadChat,4000);
 }
 async function loadChat(){
-  try {
-    const d = await api("?action=messages&wa_id=" + encodeURIComponent(current));
-    const el = document.getElementById("msgs");
-    el.innerHTML = (d.messages||[]).map(m =>
-      `<div class="row"><div class="bubble ${m.role==='user'?'user':'assistant'}">${escapeHtml(m.content)}</div></div>`).join("");
-    el.scrollTop = el.scrollHeight;
-  } catch {}
+  try{
+    const d=await api("?action=messages&wa_id="+encodeURIComponent(current));
+    const el=document.getElementById("msgs");
+    const atBottom=el.scrollHeight-el.scrollTop-el.clientHeight<80;
+    el.innerHTML=(d.messages||[]).map(m=>`<div class="bubble ${m.role==='user'?'user':'assistant'}">${escapeHtml(m.content)}</div>`).join("");
+    if(atBottom)window.scrollTo(0,document.body.scrollHeight);
+  }catch{}
 }
-function closeChat(){ current=null; openList(); }
+function closeChat(){current=null;openList();}
 async function sendReply(){
-  const ta = document.getElementById("reply"); const text = ta.value.trim();
-  if (!text || !current) return;
-  const btn = document.getElementById("sendBtn"); btn.disabled = true;
-  try { await api("", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"send", wa_id: current, text}) }); ta.value=""; await loadChat(); }
-  catch {} btn.disabled = false;
+  const ta=document.getElementById("reply");const text=ta.value.trim();
+  if(!text||!current)return;
+  const btn=document.getElementById("sendBtn");btn.disabled=true;
+  try{await api("",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"send",wa_id:current,text})});ta.value="";autishise(ta);await loadChat();window.scrollTo(0,document.body.scrollHeight);}catch{}
+  btn.disabled=false;
 }
-function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+document.getElementById("reply").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendReply();}});
+function escapeHtml(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-if (KEY) openList(); else show("login");
+if(KEY)openList();else show("login");
 </script>
 </body>
 </html>
